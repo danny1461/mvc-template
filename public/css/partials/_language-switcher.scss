@@ -1,0 +1,34 @@
+.language-switcher {
+	position: fixed;
+    top: 5px;
+    right: 0;
+    z-index: 9999;
+	padding: .3125rem;
+	
+	.language-list {
+		padding: 0;
+		list-style: none;
+		margin: 0;
+
+		.language-item {
+			display: inline;
+
+			.language-link {
+				background: $dark;
+				color: $light;
+				padding: 8px 15px;
+				font-size: .875rem;
+
+				&:hover {
+					text-decoration: none;
+    				background-color: lighten($dark, 15%);
+				}
+
+				&.active {
+					background: $blue;
+    				color: $light;
+				}
+			}
+		}
+	}
+}

@@ -1,0 +1,165 @@
+.navbar {
+    z-index: 1;
+
+    #main-nav {
+		display: flex;
+        position: fixed; 
+        bottom: 0;
+        right: -100%;
+		width: 100%;
+		padding: 15px 50px;
+		overflow-y: auto;
+		opacity: 0;
+		transition: opacity 300ms, right 300ms;
+		background-color: darken($light, 10%);
+		@media(min-width: $collapse) {
+			background-color: transparent;
+		}
+
+		@media(min-width: $collapse) {
+			width: unset;
+			right: unset;
+			bottom: unset;
+			opacity: 1;
+			position: static;
+			overflow-y: visible;
+		}
+
+		.navbar-nav {
+			.nav-item {
+				.nav-link {
+					color: $dark;
+					font-weight: 400;
+					padding: 20px 25px;
+					text-align: center;
+					&:hover, &:active, &:focus {
+						color: $blue;
+					}
+				}
+				&.active {
+					.nav-link {
+						color: $blue;
+					}
+				}
+				&.cta {
+					.nav-link {
+						background-color: $blue;
+						color: $light;
+						border-radius: 35px;
+						text-transform: uppercase;
+						padding: 20px 40px;
+						letter-spacing: 1.4px;
+						font-weight: 700;
+						@include font-size(14px);
+						&:hover, &:active, &:focus {
+							background-color: darken($blue, 10%);
+						}
+						@media(min-width: $collapse) {
+							margin-left: 25px;
+						}
+					}
+				}
+			}
+		}
+
+		&.show {
+			right: 0;
+			opacity: 1;
+			transition: opacity 300ms, right 300ms;
+		}
+
+		&.collapsing {
+			height: auto;
+		}
+
+
+        .dropdown-menu {
+			@media(max-width: $collapse - 1) {
+				display: block;
+				border: none;
+				background-color: transparent;
+			}
+			.dropdown-item {
+				text-align: center;
+				&:hover, &:active, &:focus {
+					background-color: transparent;
+					color: darken($blue, 10%);
+				}
+			}
+		}
+    }
+}
+
+.navbar-toggler {
+    padding: .60rem .75rem;
+	background-color: $blue;
+
+    &[aria-expanded="true"] {
+        .icon-bar {
+            opacity: 0;
+        }
+
+        .icon-bar-x {
+            opacity: 1;
+            transform: rotate(45deg);
+            transition: transform 250ms 150ms;
+        }
+
+        .icon-bar-sneaky {
+            transform: rotate(-45deg);
+        }
+    }
+
+    .icon-bar {
+        position: relative;
+        background-color: $light;
+        width: 25px;
+        height: 2px;
+        opacity: 1;
+        transform: rotate(0deg);
+        transition: transform 250ms;
+        top: 0;
+        display: block;
+        margin-top: 6px;
+
+        &:first-child {
+            margin-top: 0;
+        }
+
+        &.icon-bar-sneaky {
+            margin-top: -2px;
+        }
+
+        &:nth-child(4) {
+            margin-bottom: 1px;
+        }
+    }
+}
+
+.navbar-brand {
+    padding: 0;
+    margin: 0;
+    width: 100%;
+    max-width: 75px;
+	@media (min-width: $collapse) {
+		max-width: 130px;
+	}
+}
+
+.menu-item-has-children {
+    position: relative;
+
+    &:focus-within {
+
+        //Can't combine because IE11/EDGE sucks.
+        >.dropdown-menu {
+            display: block;
+        }
+    }
+
+    &:hover {
+        >.dropdown-menu {
+            display: block;
+        }
+    }
+}

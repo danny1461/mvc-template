@@ -1,0 +1,23 @@
+body{
+	font-family: $font;
+	color: $dark;
+	@include font-size(18px);
+	line-height: 1.7;
+}
+
+a {
+	color: $blue;
+	transition: color 250ms;
+	&:visited,
+	&:focus,
+	&:hover {
+		color: darken($blue, 10);
+	}
+}
+
+h1,h2,h3,h4,h5,h6 {
+	font-family: $fontSpecial;
+	line-height: 1.2;
+	margin-bottom: 30px;
+}
+

@@ -1,0 +1,13 @@
+<IfModule mod_rewrite.c>
+	RewriteEngine On
+
+	# Deny external access to these resources by rewriting to index.php
+	RewriteCond %{REQUEST_URI} ^.*(\.env|cli.php)$
+	RewriteRule ^.*$ index.php [NC,L]
+	
+	# Push all other requests to index.php
+	RewriteCond %{DOCUMENT_ROOT}%{REQUEST_FILENAME} -s [OR]
+	RewriteCond %{DOCUMENT_ROOT}%{REQUEST_FILENAME} -l [OR]
+	RewriteCond %{DOCUMENT_ROOT}%{REQUEST_FILENAME} -d
+	RewriteRule ^.*$ index.php [NC,L]
+</IfModule>

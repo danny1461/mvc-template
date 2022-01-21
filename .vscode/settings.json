@@ -1,0 +1,15 @@
+{
+	"todo-tree.filtering.includeGlobs": [
+		"**/*"
+	],
+	"todo-tree.filtering.excludeGlobs": [
+		"**/node_modules/**/*",
+		"**/App/Lib/vendor/**/*"
+	],
+	"phpunit.files": "tests/**/*Test.php",
+	"phpunit.args": [
+		"--bootstrap",
+		"./tests/helpers/Bootstrap.php",
+		"./tests"
+	]
+}
