@@ -78,10 +78,12 @@ class DependencyInjector {
 	/**
 	 * Given a resource name, fetch or generate the service
 	 *
+	 * @param string $type
 	 * @param string $name
 	 * @return mixed
 	 */
-	public function get($name) {
+	public function get($type, $name = null) {
+		$name = $name ?? $type;
 		return isset($this->typeDict[$name])
 			? $this->typeDict[$name]()
 			: null;

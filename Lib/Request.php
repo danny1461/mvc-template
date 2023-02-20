@@ -2,6 +2,8 @@
 
 namespace Lib;
 
+use Lib\Utility\PutReader;
+
 class Request {
 	private $controllerName;
 	private $actionName;
@@ -35,6 +37,10 @@ class Request {
 
 	public function getRequestVar($name) {
 		return $this->getPostVar($name) ?? $this->getGetVar($name) ?? null;
+	}
+
+	public function getPutData() {
+		return PutReader::getPutData();
 	}
 
 	public function getRouteParams() {

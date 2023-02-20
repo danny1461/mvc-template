@@ -57,10 +57,11 @@ abstract class DI {
 	/**
 	 * Given a resource name, fetch or generate the service
 	 *
+	 * @param string $type
 	 * @param string $name
 	 */
-	public static function get($name) {
-		return self::getDefault()->get($name);
+	public static function get($type, $name = null) {
+		return self::getDefault()->get($type, $name);
 	}
 
 	/**

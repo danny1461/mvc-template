@@ -2,16 +2,14 @@
 
 namespace Lib\Database\Param;
 
-class Raw extends AbstractParam {
+class Raw {
+	private $value;
+
 	public function __construct($rawValue) {
 		$this->value = $rawValue;
 	}
 
-	public function getVariableValue() {
-		return $this;
-	}
-
-	public function __toString() {
+	public function getRawString() {
 		return $this->value;
 	}
 

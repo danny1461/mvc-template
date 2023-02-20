@@ -29,8 +29,7 @@ abstract class CachedModel extends Model {
 
 	public function save() {
 		if (parent::save()) {
-			/** @var Db */
-			$db = DI::get(Adapter::class);
+			$db = DI::get(IDatabaseAdapter::class);
 			$db->trackModel(TrackTypeEnum::COMMITTED(), function() { static::_cacheModel($this); });
 
 			return true;
@@ -41,8 +40,7 @@ abstract class CachedModel extends Model {
 
 	public function delete() {
 		if (parent::delete()) {
-			/** @var Db */
-			$db = DI::get(Adapter::class);
+			$db = DI::get(IDatabaseAdapter::class);
 			$db->trackModel(TrackTypeEnum::COMMITTED(), function() { static::_cacheModel($this); });
 
 			return true;

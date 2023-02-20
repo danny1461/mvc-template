@@ -51,15 +51,15 @@ class Controller {
 			$payload = ['model' => $payload];
 		}
 
-		if (!is_file($view)) {
+		if (is_null($view) || !is_file($view)) {
 			$view = implode('/', array_pad(array_filter(explode('/', $view ?? $this->request->getActionName())), -2, $this->request->getControllerName()));
-			$view = ltrim(static::$templateDir, '/') . '/' . $view . '.php';
+			$view = rtrim(static::$templateDir, '/') . '/' . $view . '.php';
 		}
 
 		$layout = $layout ?? static::$layout;
 
 		if (!is_file($layout)) {
-			$layout = ltrim(static::$layoutDir, '/') . '/' . $layout . '.php';
+			$layout = rtrim(static::$layoutDir, '/') . '/' . $layout . '.php';
 		}
 
 		return new View([

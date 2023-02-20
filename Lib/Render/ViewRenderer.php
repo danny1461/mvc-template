@@ -27,7 +27,7 @@ class ViewRenderer implements IViewRenderer {
 					array_unshift($__file, DI::get(Request::class)->getControllerName());
 				}
 				
-				$__file = APP_ROOT . '/app/views/' . implode('/', $__file) . '.php';
+				$__file = APP_ROOT . '/App/views/' . implode('/', $__file) . '.php';
 			}
 			
 			extract($__payload);

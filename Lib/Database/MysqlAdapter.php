@@ -6,28 +6,27 @@ use mysqli;
 use Exception;
 use mysqli_result;
 use Lib\Database\Param\Raw;
-use Lib\Database\Param\AbstractParam;
+use Lib\Database\Param\IDbParam;
 
-class Adapter {
+class MysqlAdapter implements IDatabaseAdapter {
 	private $conn;
-	private $trackingModels = false;
-	private $trackedModelCallbacks = [];
+	private $transactionStack = [];
 	private $lastQuery = '';
 
-    public function __construct($host, $user, $pass, $dbname) {
-        $this->conn = new mysqli($host, $user, $pass, $dbname);
+	public function __construct($host, $user, $pass, $dbname) {
+		$this->conn = new mysqli($host, $user, $pass, $dbname);
 
-        if ($this->conn->connect_errno) {
-            throw new Exception('MySQL connect failed: ' . $this->conn->connect_errno);
+		if ($this->conn->connect_errno) {
+			throw new Exception('MySQL connect failed: ' . $this->conn->connect_errno);
 		}
 		else {
 			$this->conn->autocommit(true);
 		}
-    }
+	}
 
-    public function __destruct() {
-        $this->conn->close();
-    }
+	public function __destruct() {
+		$this->conn->close();
+	}
 
 	/**
 	 * Executes a MySQL query returning the result
@@ -36,7 +35,28 @@ class Adapter {
 	 * @param mixed ...$args
 	 * @return mixed
 	 */
-    public function query($sql, ...$args) {
+	public function query($sql, ...$args) {
+		$sql = $this->populateQuery($sql, ...$args);
+
+		$this->lastQuery = $sql;
+		$result = $this->conn->query($sql);
+
+		if ($result === true) {
+			if (stripos($sql, 'INSERT INTO') === 0) {
+				return $this->conn->insert_id;
+			}
+
+			return true;
+		}
+		elseif ($result instanceof mysqli_result) {
+			return $this->emitRows($result);
+		}
+		else {
+			return false;
+		}
+	}
+
+	public function populateQuery($sql, ...$args) {
 		if (count($args) == 1 && is_array($args[0])) {
 			$args = $args[0];
 		}
@@ -47,38 +67,22 @@ class Adapter {
 		}
 		
 		$sql = trim($sql);
-		$sql = self::insertSqlParams($sql, $args);
+		return self::insertSqlParams($sql, $args);
+	}
 
-		$this->lastQuery = $sql;
-		$result = $this->conn->query($sql);
-
-        if ($result === true) {
-			if (stripos($sql, 'INSERT INTO') === 0) {
-				return $this->conn->insert_id;
-			}
-
-			return true;
-        }
-        elseif ($result instanceof mysqli_result) {
-            $rows = [];
-            while ($row = $result->fetch_assoc()) {
-                $rows[] = $row;
-            }
-
-            return $rows;
-        }
-        else {
-            return false;
-        }
-    }
+	private function emitRows($result) {
+		while ($row = $result->fetch_assoc()) {
+			yield $row;
+		}
+	}
 
 	/**
 	 * Gets the last error from the MySQL connection
 	 *
 	 * @return string
 	 */
-    public function getLastError() {
-        return $this->conn->error;
+	public function getLastError() {
+		return $this->conn->error;
 	}
 
 	/**
@@ -89,15 +93,39 @@ class Adapter {
 	public function getLastQuery() {
 		return $this->lastQuery;
 	}
+
+	/**
+	 * Returns whether a transaction is active
+	 * @return bool 
+	 */
+	public function inTransaction() {
+		return !!$this->transactionStack;
+	}
+
+	private function &getCurrentTransaction() {
+		return $this->transactionStack[count($this->transactionStack) - 1];
+	}
 	
 	/**
-	 * Begins a transaction on the MySQL connection
+	 * Begins a transaction on the MySQL connection. If a transaction is already running, attempts to create a savepoint.
 	 *
 	 * @return void
 	 */
 	public function startTransaction() {
-		$this->conn->autocommit(false);
-		$this->trackingModels = true;
+		if (!$this->inTransaction()) {
+			$this->conn->autocommit(false);
+			$this->transactionStack[] = [
+				'models' => []
+			];
+		}
+		else {
+			$savepointName = 'POINT_' . count($this->transactionStack);
+			$this->conn->query("SAVEPOINT {$savepointName};");
+			$this->transactionStack[] = [
+				'id' => $savepointName,
+				'models' => []
+			];
+		}
 	}
 
 	/**
@@ -106,18 +134,24 @@ class Adapter {
 	 * @return void
 	 */
 	public function abortTransaction() {
-		$this->conn->rollback();
-		$this->conn->autocommit(true);
-		$this->trackingModels = false;
+		$state = array_pop($this->transactionStack);
 
-		$type = (string)TrackTypeEnum::ABORTED();
-		if (isset($this->trackedModelCallbacks[$type])) {
-			foreach ($this->trackedModelCallbacks[$type] as $cb) {
-				$cb();
+		if ($state) {
+			if (isset($state['id'])) {
+				$this->conn->query("ROLLBACK TO SAVEPOINT {$state['id']};");
+			}
+			else {
+				$this->conn->rollback();
+				$this->conn->autocommit(true);
+			}
+
+			$type = (string)TrackTypeEnum::ABORTED();
+			if (isset($state['models'][$type])) {
+				foreach ($state['models'][$type] as $cb) {
+					$cb();
+				}
 			}
 		}
-		
-		$this->trackedModelCallbacks = [];
 	}
 
 	/**
@@ -126,27 +160,52 @@ class Adapter {
 	 * @return void
 	 */
 	public function commitTransaction() {
-		$this->conn->commit();
-		$this->conn->autocommit(true);
-		$this->trackingModels = false;
+		$state = array_pop($this->transactionStack);
 
-		$type = (string)TrackTypeEnum::COMMITTED();
-		if (isset($this->trackedModelCallbacks[$type])) {
-			foreach ($this->trackedModelCallbacks[$type] as $cb) {
-				$cb();
+		if ($state) {
+			if (isset($state['id'])) {
+				$this->conn->query("RELEASE SAVEPOINT {$state['id']};");
+				// Migrate tracked models back to previous state handler
+				$previousState = &$this->getCurrentTransaction();
+				foreach ($state['models'] as $type => $cbs) {
+					if (!isset($previousState['models'][$type])) {
+						$previousState['models'][$type] = [];
+					}
+
+					$previousState['models'][$type] = array_merge($previousState['models'][$type], $cbs);
+				}
+			}
+			else {
+				$this->conn->commit();
+				$this->conn->autocommit(true);
+
+				$type = (string)TrackTypeEnum::COMMITTED();
+				if (isset($state['models'][$type])) {
+					foreach ($state['models'][$type] as $cb) {
+						$cb();
+					}
+				}
 			}
 		}
-
-		$this->trackedModelCallbacks = [];
 	}
 
 	/**
-	 * Returns whether or not the database is in transaction mode
-	 *
-	 * @return boolean
+	 * Wraps the callable in a transaction that aborts on error and commits on success
+	 * 
+	 * @param callable $fn 
+	 * @return void 
 	 */
-	public function isTrackingModels() {
-		return $this->trackingModels;
+	public function withTransaction(callable $fn) {
+		$this->startTransaction();
+
+		try {
+			$fn();
+			$this->commitTransaction();
+		}
+		catch (Exception $e) {
+			$this->abortTransaction();
+			throw $e;
+		}
 	}
 
 	/**
@@ -159,12 +218,13 @@ class Adapter {
 	public function trackModel(TrackTypeEnum $type, callable $cb) {
 		$type = (string)$type;
 
-		if ($this->trackingModels) {
-			if (!isset($this->trackedModelCallbacks[$type])) {
-				$this->trackedModelCallbacks[$type] = [];
+		if ($this->inTransaction()) {
+			$state = &$this->getCurrentTransaction();
+			if (!isset($state['models'][$type])) {
+				$state['models'][$type] = [];
 			}
 
-			$this->trackedModelCallbacks[$type][] = $cb;
+			$state['models'][$type][] = $cb;
 		}
 		elseif ($type == TrackTypeEnum::COMMITTED()) {
 			return $cb();
@@ -172,12 +232,11 @@ class Adapter {
 	}
 
 	private function prepareSqlParam($val) {
-		if ($val instanceof AbstractParam) {
-			$val = $val->getVariableValue();
-		}
-
 		if ($val instanceof Raw) {
-			return [$val->__toString(), 'raw'];
+			return [$val->getRawString(), 'raw'];
+		}
+		elseif ($val instanceof IDbParam) {
+			$val = $val->toDbParam();
 		}
 
 		switch ($type = gettype($val)) {

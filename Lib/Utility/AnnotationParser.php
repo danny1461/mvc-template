@@ -23,7 +23,7 @@ abstract class AnnotationParser {
 	 *
 	 * @return array
 	 */
-	public static function parseClass($classNameOrInst, $that = null) {
+	public static function parseClass($classNameOrInst, $that = null, $includeStatic = false) {
 		if (is_object($classNameOrInst)) {
 			$that = $classNameOrInst;
 			$classNameOrInst = get_class($classNameOrInst);
@@ -34,7 +34,7 @@ abstract class AnnotationParser {
 				self::$thisPlaceholder = new stdClass();	// A singularly unique value
 			}
 
-			self::$annotationsMap[$classNameOrInst] = static::processClass($classNameOrInst);
+			self::$annotationsMap[$classNameOrInst] = static::processClass($classNameOrInst, $includeStatic);
 			self::$thisReplacements[$classNameOrInst] = static::findThisReplacements($classNameOrInst);
 		}
 
@@ -49,7 +49,7 @@ abstract class AnnotationParser {
 	 *
 	 * @return array
 	 */
-	private static function processClass($className) {
+	private static function processClass($className, $includeStatic) {
 		$reflector = new ReflectionClass($className);
 		$annotations = [
 			'methods' => [],
@@ -63,7 +63,7 @@ abstract class AnnotationParser {
 		);
 
 		foreach ($classProps as $refObj) {
-			if (!($refObj instanceof ReflectionClass) && $refObj->isStatic()) {
+			if (!($refObj instanceof ReflectionClass) && !$includeStatic && $refObj->isStatic()) {
 				continue;
 			}
 
@@ -292,7 +292,7 @@ abstract class AnnotationParser {
 				: null;
 		}
 
-		// Other primitives
+		// Other literals
 		else {
 			$rightSide = strcspn($str, self::WORD_SEPARATORS);
 			if (!$rightSide) {
@@ -301,6 +301,23 @@ abstract class AnnotationParser {
 
 			$value = substr($str, 0, $rightSide);
 			$str = ltrim(substr($str, $rightSide));
+
+			// TODO: Add processing for class/interface constants and global constants
+			/* if (strpos($str, '::') === 0) {
+				// Must be a class/interface const
+				if (!class_exists($value) && !interface_exists($value)) {
+
+				}
+
+				$str = substr($str, 2);
+				$rightSide = strcspn($str, self::WORD_SEPARATORS);
+				if (!$rightSide) {
+					throw new Exception("Expected a constant name");
+				}
+			}
+			else {
+				// Either constant or primitive value
+			} */
 
 			return self::getPrimitiveVar($value);
 		}

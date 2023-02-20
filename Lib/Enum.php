@@ -3,9 +3,10 @@
 namespace Lib;
 
 use Exception;
+use Lib\Database\Param\IDbParam;
 use Lib\Utility\AnnotationParser;
 
-abstract class Enum {
+abstract class Enum implements IDbParam {
 	private static $enumCache = [];
 	private $value;
 
@@ -17,6 +18,10 @@ abstract class Enum {
 		}
 
 		$this->value = $value;
+	}
+
+	public function toDbParam() {
+		return $this->value;
 	}
 
 	public function __toString() {
